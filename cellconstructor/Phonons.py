@@ -1146,7 +1146,8 @@ class Phonons:
             # Setup the atomic structure
             for i in range(n_atoms):
                 # Convert the coordinates in alat
-                coords = self.structure.coords[i,:] / self.alat
+                coords =  Methods.cart_to_cryst(self.structure.unit_cell, self.structure.coords[i,:]) ## store structure in dyn file.
+                #coords = self.structure.coords[i,:] / self.alat
                 fp.write("%5d %5d %22.16f %22.16f %22.16f\n" %
                          (i +1, itau[self.structure.atoms[i]],
                           coords[0], coords[1], coords[2]))
@@ -1403,6 +1404,20 @@ class Phonons:
                     continue
 
                 data = line.replace(",","").split()
+                
+                ## to check the unit in FORCE_CONSTANT 
+                if "length:" in line:     
+                    if "angstrom" in line:
+                        length_scale = 1
+                    if "au" in line:
+                        length_scale = BOHR_TO_ANGSTROM
+                
+                if "force_constants:" in line:
+                    if "eV/angstrom^2" in line:
+                        fc_scale = 1 / RY_TO_EV * BOHR_TO_ANGSTROM**2
+                    if "Ry/au^2" in line:
+                        fc_scale = 1 #/ BOHR_TO_ANGSTROM**2
+                ##
 
                 if line == "supercell_matrix:":
                     read_supercell = True
@@ -1456,23 +1471,25 @@ class Phonons:
                     if read_primitive_cell:
                         self.structure = Structure.Structure(len(atoms))
                         self.structure.atoms = atoms
-                        self.structure.coords[:,:] = np.array(coords) * BOHR_TO_ANGSTROM
+                        self.structure.coords[:,:] = np.array(coords) * length_scale # * BOHR_TO_ANGSTROM
                         self.structure.masses = masses
                         self.structure.has_unit_cell = True
-                        self.structure.unit_cell = unit_cell.copy() * BOHR_TO_ANGSTROM
+                        self.structure.unit_cell = unit_cell.copy() * length_scale # * BOHR_TO_ANGSTROM
                     read_coord = False
                     read_lattice = False
                     read_primitive_cell = False
                     read_superstruct = True
                     continue
 
+        self.alat =  (self.structure.unit_cell[0,0]**2 + self.structure.unit_cell[0,1]**2 + self.structure.unit_cell[0,2]**2)**0.5 ## set alat value
+
         # Now create the superstructure
         if read_superstruct:
             superstruct = Structure.Structure(len(atoms))
             superstruct.atoms = atoms
-            superstruct.coords[:,:] = np.array(coords) * BOHR_TO_ANGSTROM
+            superstruct.coords[:,:] = np.array(coords) * length_scale # * BOHR_TO_ANGSTROM
             superstruct.masses = masses
-            superstruct.unit_cell = unit_cell.copy() * BOHR_TO_ANGSTROM
+            superstruct.unit_cell = unit_cell.copy() * length_scale # * BOHR_TO_ANGSTROM
             superstruct.has_unit_cell = True
 
         # Get the Equivalent atoms in the unit cell
@@ -1497,7 +1514,7 @@ class Phonons:
 
 
                 if i == 0:
-                    nat_prim = int(data[0])
+                    nat_prim = int(data[0])  ## actually, here may be also the total number of atoms.
                     nat_tot = int(data[1])
                     continue
 
@@ -1507,9 +1524,12 @@ class Phonons:
                 y = iteration % nat_tot
 
                 if counter > 0:
-                    for new_x in np.arange(superstruct.N_atoms)[itau == x]:
-                        fc[3 * new_x + counter -1, 3*y: 3*y + 3] = [float(fx) for fx in data]
-                        fc[3*y: 3*y + 3, 3 * new_x + counter -1] = [float(fx) for fx in data]
+                    fc[3 * x + counter -1, 3*y: 3*y + 3] = [float(fx) for fx in data]
+                    fc[3*y: 3*y + 3, 3 * x + counter -1] = [float(fx) for fx in data]
+                    
+                    #for new_x in np.arange(superstruct.N_atoms)[itau == x]:
+                    #    fc[3 * new_x + counter -1, 3*y: 3*y + 3] = [float(fx) for fx in data]
+                    #    fc[3*y: 3*y + 3, 3 * new_x + counter -1] = [float(fx) for fx in data]
                 #     counter += 1
 
                 #     if counter == 3:
@@ -1556,6 +1576,7 @@ class Phonons:
 
 
         # Now transform back in real space
+        fc = fc * fc_scale   ## change the unit of fc
         q_tot = symmetries.GetQGrid(self.structure.unit_cell, supercell)
         dynq = GetDynQFromFCSupercell(fc, np.array(q_tot), self.structure, superstruct, itau)
         self.dynmats = [None] * len(q_tot)
