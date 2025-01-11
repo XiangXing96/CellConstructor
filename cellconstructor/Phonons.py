@@ -1586,9 +1586,9 @@ class Phonons:
         for iq in range(len(q_tot)):
             #Impose Hermisian condition
             temp_dynq = dynq[iq, :, :]
-            np.savetxt("dynq.txt", temp_dynq.real)
+            #np.savetxt("dynq.txt", temp_dynq.real)
             temp_dynq_hessian = (temp_dynq + temp_dynq.conj().transpose()) / 2
-            np.savetxt("dynq_hessian.txt", temp_dynq_hessian.real)
+            #np.savetxt("dynq_hessian.txt", temp_dynq_hessian.real)
             self.dynmats[iq] = temp_dynq_hessian
             
             #self.dynmats[iq] = dynq[iq, :, :]
