@@ -1525,7 +1525,7 @@ class Phonons:
 
                 if counter > 0:
                     fc[3 * x + counter -1, 3*y: 3*y + 3] = [float(fx) for fx in data]
-                    fc[3*y: 3*y + 3, 3 * x + counter -1] = [float(fx) for fx in data]
+                    #fc[3*y: 3*y + 3, 3 * x + counter -1] = [float(fx) for fx in data]
                     
                     #for new_x in np.arange(superstruct.N_atoms)[itau == x]:
                     #    fc[3 * new_x + counter -1, 3*y: 3*y + 3] = [float(fx) for fx in data]
@@ -1584,7 +1584,14 @@ class Phonons:
         self.q_stars = [q_tot]
 
         for iq in range(len(q_tot)):
-            self.dynmats[iq] = dynq[iq, :, :]
+            #Impose Hermisian condition
+            temp_dynq = dynq[iq, :, :]
+            np.savetxt("dynq.txt", temp_dynq.real)
+            temp_dynq_hessian = (temp_dynq + temp_dynq.conj().transpose()) / 2
+            np.savetxt("dynq_hessian.txt", temp_dynq_hessian.real)
+            self.dynmats[iq] = temp_dynq_hessian
+            
+            #self.dynmats[iq] = dynq[iq, :, :]
 
         self.AdjustQStar()
 
